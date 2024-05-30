@@ -80,7 +80,7 @@ while mode == 0:
     # sends 2 exit commands to the switch
     objTab.Screen.WaitForStrings(prompts)
     objTab.Screen.Send("exit" + end_line)
-    objTab.Screen.Send("exit" + end_line)    
+    objTab.Screen.Send("exit" + end_line)
 
     # looks for the y/n prompt and reboots
     objTab.Screen.WaitForString(rbPrompt)
@@ -126,25 +126,29 @@ while mode == 2:
     objTab.Screen.WaitForString(lgnPrompt)
     objTab.Screen.Send("root" + end_line)
 
+    # Define list and strings
     wait_strings = pwPrompts + prompts
     output = objTab.Screen.WaitForStrings(wait_strings)
+    error = objTab.Screen.ReadString("error:")
+    HWinv = objTab.Screen.ReadString("Hardware Inventory:")
+
+    # Handle log-in process
     if output <= 4:
         objTab.Screen.Send("juniper1" + end_line)
-    elif output >= 5:
+    elif output == 7:
         objTab.Screen.Send("cli" + end_line)
 
-    # looks for cli prompt and checks system information
-    prompts_strings = pwPrompts
-    delay = objTab.Screen.WaitForStrings(prompts_strings, "error:")
-    if delay <= 4:
-        objTab.Screen.Send("show chassis hardware" + end_line)
-    elif delay == 5:
-        objTab.Screen.Send(end_line)
-    break
-
-
-# =============================================================================================================
-# Send message to screen that format is finished.
+        # loop to handle timing with chassis sub-system being "inactive".
+        while True:
+            if output <= 6:
+                objTab.Screen.Send("show chassis hardware" + end_line)
+                break
+            elif error == 1:
+                objTab.Screen.Send(end_line)
+            elif HWinv == 1:
+                mode = 3
+                break
+    # Send message to screen that format is finished.
     # format_complete = objTab.Screen.ReadString(rebootPrompt)
     # if format_complete:
     # message = "Sanitation Complete"
