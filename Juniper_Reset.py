@@ -5,9 +5,9 @@ Created on 5-23-24 by Mitch Kelley
 
 juniper_reset.py
 
-This script was created to automate the process of wiping a sub-set of Juniper units.
+This script was created to automate the process of wiping specific Juniper switches,
 
-Allowing multiple units to run concurrent.
+allowing multiple units to run concurrent.
 
 """
 # CRT Variables
@@ -93,8 +93,6 @@ while mode == 1:
     # sets the variables for regular boot
     lgnPrompt = "login:"
     pwPrompts = ["password:", "New password:", "Retype new password:", "Password:"]
-    rebootPrompt = "Rebooting..."
-    resetPrompt = "FLASH:"
     krnlPrompt = "/kernel"
     ldPrompt = "loader>"
     prompts = ["root#", "root>", "root@", "root@DS03-UDC-EX4550>"]
@@ -120,7 +118,7 @@ while mode == 2:
     # set variables for final boot
     lgnPrompt = "login:"
     pwPrompts = ["password:", "New password:", "Retype new password:", "Password:"]
-    prompts = ["root#", "root>", "root@", "root@DS03-UDC-EX4550>"]
+    prompts = ["root#", "root>", "root@", "root@DS03-UDC-EX4550>","{master:0}"]
 
     # Wait for the login prompt and logs into switch
     objTab.Screen.WaitForString(lgnPrompt)
@@ -129,8 +127,6 @@ while mode == 2:
     # Define list and strings
     wait_strings = pwPrompts + prompts
     output = objTab.Screen.WaitForStrings(wait_strings)
-    error = objTab.Screen.ReadString("error:")
-    HWinv = objTab.Screen.ReadString("Hardware Inventory:")
 
     # Handle log-in process
     if output <= 4:
@@ -138,14 +134,20 @@ while mode == 2:
     elif output == 7:
         objTab.Screen.Send("cli" + end_line)
 
-        # loop to handle timing with chassis sub-system being "inactive".
-        while True:
-            if output <= 6:
-                objTab.Screen.Send("show chassis hardware" + end_line)
-                break
-            elif error == 1:
-                objTab.Screen.Send(end_line)
-            elif HWinv == 1:
+    # loop to handle timing with chassis sub-system being "inactive".
+    erPrompt = ["error:", "Hardware Inventory:"]
+    output = objTab.Screen.WaitForStrings(wait_strings)
+    errOutput = objTab.Screen.WaitForStrings(erPrompt)
+
+    while True:
+
+        if output <= 6:
+            objTab.Screen.Send("show chassis hardware" + end_line)
+            break
+        elif errOutput == 1:
+            objTab.Screen.Send(end_line)
+        else:
+            if errOutput == 2:
                 mode = 3
                 break
     # Send message to screen that format is finished.
