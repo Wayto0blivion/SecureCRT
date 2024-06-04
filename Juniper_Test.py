@@ -87,25 +87,35 @@ strings = [
 #     if Index <= 2 or Index >= 5:
 #         objTab.Screen.Send(string + end_line)
 
-for string in strings:
-    log_message("String: {}".format(string))
-    if string == strings[2]:
-        log_message("PWSET")
-        pwset = "set system root-authentication plain-text-password"
-        pw_string = objTab.Screen.ReadString("root#")
-        log_message("pw_string:  {}".format(pw_string))
-        objTab.Screen.ReadString("root#")
-        if pwset in pw_string:
-            log_message("Found pwset in pw_string")
-            objTab.Screen.Send("juniper1" + end_line)
-            objTab.Screen.Send("juniper1" + end_line)
-        # objTab.Screen.WaitForString("Retype new password:")
-        # objTab.Screen.Send("juniper1" + end_line)
-    else:
-        log_message("set system root-authentication plain-text-password")
-        objTab.Screen.WaitForStrings(prompts)
-        objTab.Screen.Send(string + end_line)
+# for string in strings:
+#     log_message("String: {}".format(string))
+#     if string is "set system root-authentication plain-text-password":
+#         log_message("PWSET")
+#         pwset = "set system root-authentication plain-text-password"
+#         pw_string = objTab.Screen.ReadString("root#")
+#         log_message("pw_string:  {}".format(pw_string))
+#         objTab.Screen.ReadString("root#")
+#         if pwset in pw_string:
+#             log_message("Found pwset in pw_string")
+#             objTab.Screen.Send("juniper1" + end_line)
+#             objTab.Screen.Send("juniper1" + end_line)
+#         # objTab.Screen.WaitForString("Retype new password:")
+#         # objTab.Screen.Send("juniper1" + end_line)
+#     else:
+#         log_message("set system root-authentication plain-text-password")
+#         log_message(objTab.Screen.WaitForStrings(prompts))
+#         objTab.Screen.Send(string + end_line)
 
+objTab.Screen.Send("cli")
+log_message(objTab.Screen.WaitForStrings(prompts))
+objTab.Screen.Send("edit")
+log_message(objTab.Screen.WaitForStrings(prompts))
+objTab.Screen.Send("set system root-authentication plain-text-password")
+log_message(objTab.Screen.WaitForStrings(pwPrompts))
+objTab.Screen.Send("juniper1")
+log_message(objTab.Screen.WaitForStrings(pwPrompts))
+objTab.Screen.Send("juniper1")
+log_message(objTab.Screen.WaitForStrings(prompts))
 
 # View PID/Hardware status
 objTab.Screen.WaitForStrings(prompts)
