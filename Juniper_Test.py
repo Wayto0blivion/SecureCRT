@@ -122,15 +122,15 @@ strings = [
 for string in strings:
     if string is "set system root-authentication plain-text-password":
         objTab.Screen.Send("set system root-authentication plain-text-password" + end_line)
-        objTab.Screen.Send("juniper1")
-        objTab.Screen.WaitForStrings(pwPrompts)
-        objTab.Screen.Send("juniper1")
-        objTab.Screen.WaitForStrings(pwPrompts)
+        pw = objTab.Screen.WaitForStrings(pwPrompts)
+        objTab.Screen.Send("juniper1" + end_line)
+        rpw = objTab.Screen.WaitForStrings(pwPrompts)
+        objTab.Screen.Send("juniper1" + end_line)
+
     else:
         objTab.Screen.Send(string + end_line)
-        objTab.Screen.WaitForStrings(prompts)
+        prompt_ = objTab.Screen.WaitForStrings(prompts)
 
 
 # View PID/Hardware status
-objTab.Screen.WaitForStrings(prompts)
 objTab.Screen.Send("show chassis hardware" + end_line)
