@@ -1,12 +1,35 @@
 # $language = "python"
 # $interface = "1.0"
 
+
+def get_log_path():
+    """
+    Determine the absolute filepath of the directory where script lives
+    :return: Absolute filepath of the log file
+    """
+    script_directory = os.path.dirname(os.path.abspath(__file__))
+    logfile_path = os.path.join(script_directory, "crt_log.txt")
+    return logfile_path
+
+
+def log_message(message):
+    """
+    Saves debugging logs to a separate text file in the same location.
+    :param message: Message to save to log file.
+    :return: None
+    """
+    with open(get_log_path(), "a") as file:
+        file.write(message + '\n')
+
+
 # CRT Variables
 objTab = crt.GetScriptTab()
 objTab.Screen.Synchronous = True
 objTab.Screen.IgnoreEscape = True
 end_line = chr(13)
 confirmation = 'y' + end_line
+
+
 
 # Variables for EX4550
 krnlPrompt = "/kernel"
@@ -65,16 +88,21 @@ strings = [
 #         objTab.Screen.Send(string + end_line)
 
 for string in strings:
+    log_message("String: {}".format(string))
     if string == strings[2]:
+        log_message("PWSET")
         pwset = "set system root-authentication plain-text-password"
         pw_string = objTab.Screen.ReadString("root#")
+        log_message("pw_string:  {}".format(pw_string))
         objTab.Screen.ReadString("root#")
         if pwset in pw_string:
+            log_message("Found pwset in pw_string")
             objTab.Screen.Send("juniper1" + end_line)
             objTab.Screen.Send("juniper1" + end_line)
         # objTab.Screen.WaitForString("Retype new password:")
         # objTab.Screen.Send("juniper1" + end_line)
-    elif string <= strings[1] or string >= strings[3]:
+    else:
+        log_message("set system root-authentication plain-text-password")
         objTab.Screen.WaitForStrings(prompts)
         objTab.Screen.Send(string + end_line)
 
