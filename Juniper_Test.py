@@ -107,16 +107,29 @@ strings = [
 #         log_message(objTab.Screen.WaitForStrings(prompts))
 #         objTab.Screen.Send(string + end_line)
 
-objTab.Screen.Send("cli" + end_line)
-log_message(str(objTab.Screen.WaitForStrings(prompts)))
-objTab.Screen.Send("edit" + end_line)
-log_message(str(objTab.Screen.WaitForStrings(prompts)))
-objTab.Screen.Send("set system root-authentication plain-text-password" + end_line)
-log_message(str(objTab.Screen.WaitForStrings(pwPrompts)))
-objTab.Screen.Send("juniper1" + end_line)
-log_message(str(objTab.Screen.WaitForStrings(pwPrompts)))
-objTab.Screen.Send("juniper1" + end_line)
-log_message(str(objTab.Screen.WaitForStrings(prompts)))
+# objTab.Screen.Send("cli" + end_line)
+# log_message(str(objTab.Screen.WaitForStrings(prompts)))
+# objTab.Screen.Send("edit" + end_line)
+# log_message(str(objTab.Screen.WaitForStrings(prompts)))
+# objTab.Screen.Send("set system root-authentication plain-text-password" + end_line)
+# log_message(str(objTab.Screen.WaitForStrings(pwPrompts)))
+# objTab.Screen.Send("juniper1" + end_line)
+# log_message(str(objTab.Screen.WaitForStrings(pwPrompts)))
+# objTab.Screen.Send("juniper1" + end_line)
+# log_message(str(objTab.Screen.WaitForStrings(prompts)))
+
+
+for string in strings:
+    if string is "set system root-authentication plain-text-password":
+        objTab.Screen.Send("set system root-authentication plain-text-password" + end_line)
+        objTab.Screen.Send("juniper1")
+        objTab.Screen.WaitForStrings(pwPrompts)
+        objTab.Screen.Send("juniper1")
+        objTab.Screen.WaitForStrings(pwPrompts)
+    else:
+        objTab.Screen.Send(string + end_line)
+        objTab.Screen.WaitForStrings(prompts)
+
 
 # View PID/Hardware status
 objTab.Screen.WaitForStrings(prompts)
