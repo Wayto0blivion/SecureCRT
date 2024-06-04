@@ -1,5 +1,6 @@
 # $language = "python"
 # $interface = "1.0"
+import os
 
 
 def get_log_path():
