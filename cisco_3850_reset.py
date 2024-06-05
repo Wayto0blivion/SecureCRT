@@ -2,15 +2,17 @@
 # $interface = "1.0"
 
 """
-Created on 4-5-2024 by Dustin Beck
+Original created on 4-5-2024 by Dustin Beck
 
-cisco_boot_reset.py
+Edited for use with C3k series Cisco switches on 6/5/24 by Mitch Kelley
 
-The purpose of this script is to remove pre-boot files on Cisco devices
-while leaving .bin(boot) files intact.
+cisco_3850_reset.py
+
+The purpose of this script is to remove files on C3K devices
+while leaving (.conf) files intact.
 
 This script is designed to be run once per device, after the MODE button has been pressed
-and the first "switch:" prompt appears, where the flash_init command is usually passed.
+and the first "switch:" prompt appears, where the SWITCH_IGNORE_STARTUP_CFG=1 command is usually passed.
 """
 
 
@@ -80,9 +82,9 @@ def load_variable_file():
             "directory": 'flash:',
             "excluded_directories": ['html'],
             "rommon_files": ['vlan.dat', 'multiple-fs', 'config.text'],
-            "boot_command": ['boot flash:packages.conf', 'boot flash:[filename]']
+            "boot_command": 'boot flash:packages.conf',
             "boot_message": 'Press RETURN to get started!',
-            "file_extension": ['.bin','.pkg', '.conf']
+            "file_extension": ['.pkg', '.conf']
         }
         # create the file and write the default data to it
         with open(variables_path, 'a') as file:
@@ -122,45 +124,18 @@ def get_log_path():
     :return: Absolute filepath of the log file
     """
     script_directory = os.path.dirname(os.path.abspath(__file__))
-    logfile_path = os.path.join(script_directory, "crt_log.txt")
+    logfile_path = os.path.join(script_directory, "3850_log.txt")
     return logfile_path
-
-
-# def rommon_erasure():
-#     """
-#     Handle file erasures in ROMMON before boot
-#     :return:
-#     """
-#     # Iterate over all the variable ROMMON files and call a delete command on them.
-#     # IMPORTANT! This does NOT delete files that are not in the root directory from here!
-#     for file in variables['rommon_files']:
-#         file_path = variables['directory'] + file
-#         delete_file(file_path)
-#     log_message('rommon_erasure: Complete!')
 
 
 def ignore_startup():
     """
-    Run the flash_init command and wait for the prompt to appear
+    Run the 'SWITCH_IGNORE_STARTUP_CFG=1' command and wait for the prompt to appear
     :return:
     """
     objTab.Screen.Send("SWITCH_IGNORE_STARTUP_CFG=1" + end_line)
-    output_string = objTab.Screen.WaitForStrings(['MORE', variables['prompt']])
-    while output_string == 1:
-        log_message('flash_init: Found MORE! Sending SPACE')
-        objTab.Screen.Send(" ")
-        output_string = objTab.Screen.WaitForStrings(['MORE', variables['prompt']])
-
-
-def boot_var():
-    """
-    Find the current boot variable and store it
-    """
-    objTab.Screen.Send("set" + end_line)
-    change_to_shell_prompt()
-    boot_file = objTab.Screen.ReadString(variables['prompt'])
-    if "packages.conf" in boot_file or ".bin" in boot_file:
-
+    objTab.Screen.WaitForStrings([variables['prompt']])
+    log_message('Ignore startup: Prompt found!')
 
 
 def boot_device():
@@ -199,7 +174,7 @@ def delete_file(filename):
     :return: Whether the file was deleted or not.
     """
     log_message('delete_file: Deleting {}'.format(filename))
-    objTab.Screen.Send("del {}{}".format(filename, end_line))
+    objTab.Screen.Send("del /f /r {}{}".format(filename, end_line))
     output_string = objTab.Screen.WaitForStrings(['y/n', 'file or directory'])
     # Check if the output is y/n, and if it is, send a confirmation.
     if output_string == 1:
@@ -208,7 +183,7 @@ def delete_file(filename):
         log_message('delete_file: File Deleted! {}'.format(filename))
     elif output_string == 2:
         log_message('delete_file: Could not delete file! {}'.format(filename))
-        display_to_user('File couldn\'t be deleted! \n{}'.format(filename))
+        display_to_user('File Couldn\'t be deleted! \n{}'.format(filename))
 
 
 def boot_delete_file(filename):
@@ -237,6 +212,9 @@ def write_erase():
     # Wait for the prompt to appear again.
     objTab.Screen.WaitForString(variables['prompt'])
     log_message('write_erase: Found Prompt!')
+
+
+
 
 
 def process_directory(files):
@@ -308,10 +286,10 @@ def get_directory_contents(directory):
             # Skip empty lines
             if row.strip():
                 # Ignore rows that have a boot extension
-                if ".SE9" in row or ".bin" in row:
+                if ".conf" in row or "pkg." in row:
                     found_bin_file = True
-                    log_message('get_directory_contents: Found .bin file!')
-                    display_to_user('Couldn\'t find .bin file!')
+                    log_message('get_directory_contents: Found .conf file!')
+                    display_to_user('Couldn\'t find .conf file!')
                     continue
                 # The last line contains byte information. This can be used as an indication for the end of the loop.
                 if 'bytes' in row:
@@ -412,8 +390,6 @@ def handle_device():
     change_to_rommon_prompt()
     # Set configuration to ignore user configuration
     ignore_startup()
-    # Erase ROMMON files
-    # rommon_erasure()
     # Get directory contents before boot
     files = get_directory_contents(variables['directory'])
     # Boot the device
@@ -422,8 +398,27 @@ def handle_device():
     enable_shell()
     # Send the 'write erase' command
     write_erase()
+    #Clear stored logs
+    clear_logs()
+    # Recursively del nvram: directory
+    del_nvram_dir()
+    # Format the crashinfo: directory
+    format_crash()
+    #Check for VTP status then delete VLANs
+    check_vtp_vlans()
     # Process the contents of the directory
     process_directory(files)
+
+# clear_logs
+# format_crash_dir
+# del_nvram_dir
+# check_vtp()
+# del_vlans
+# clear_keys
+# save and display hardware/vlan info
+
+
+
 
 
 
@@ -431,6 +426,104 @@ def handle_device():
 
 
 # ====================================================================================================================
+"""
+Clear all stored logs
+"""
+def clear_logs():
+    objTab.Screen.Send("clear log" + end_line)
+    log_message('clear_log: Sent clear log command!')
+    # Wait for the write erase confirmation prompt and send a carriage return
+    objTab.Screen.WaitForStrings('[confirm]')
+    objTab.Screen.Send(end_line)
+    log_message('clear_log: Found Confirmation')
+    # Wait for the prompt to appear again.
+    objTab.Screen.WaitForString(variables['prompt'])
+    log_message('clear_log: Found Prompt!')
+
+"""
+Clear all network keys
+"""
+def clear_keys():
+    objTab.Screen.Send("crypto key zeroize rsa" + end_line)
+    objTab.Screen.WaitForString(variables[])
+    objTab.Screen.Send("crypto key zeroize rsa" + end_line)
+
+
+"""
+Send the 'conf t' command to enable the configuration terminal
+"""
+def enable_configuration():
+    objTab.Screen.Send("conf t" + end_line)
+    change_to_configuration_prompt()
+    objTab.Screen.WaitForString(variables['prompt'])
+    log_message('enable_configuration: Enabled configuration and detected Prompt!')
+
+"""
+Format the 'crashinfo:' directory
+"""
+def format_crash():
+    objTab.Screen.Send("format crashinfo:" + end_line)
+    objTab.Screen.WaitForStrings('[confirm]')
+    objTab.Screen.Send(end_line)
+    log_message('clear_log: Found Confirmation')
+    objTab.Screen.WaitForStrings('[confirm]')
+    objTab.Screen.Send(end_line)
+    log_message('clear_log: Found Confirmation')
+    objTab.Screen.WaitforStrings(variables['prompt'])
+
+"""
+Delete the contents of nvram dir:
+"""
+def del_nvram_dir():
+    objTab.Screen.Send("del /f /r nvram:")
+    objTab.Screen.WaitForStrings(variables['prompt'])
+    log_message('del_nvram_dir: Deleted Nvram and Found prompt!')
+
+"""
+    Send 'show vtp status' to check and set status to 'OFF'
+"""
+def check_vtp_vlans():
+    objTab.Screen.Send("show vtp status" + end_line)
+    response = objTab.Screen.ReadString("Switch#")
+    if "Client" in response or "Transparent" in response:
+        # If VTP Client or Transparent mode is enabled, turn off VTP mode
+        enable_configuration()
+        objTab.Screen.Send("vtp mode off" + end_line)
+        objTab.Screen.WaitForString(variables['prompt'])
+        objTab.Screen.Send("no vlan 2-4094" + end_line)
+        objTab.Screen.WaitForString(variables['prompt'])
+    elif "OFF" in response:
+        enable_configuration()
+        objTab.Screen.Send("no vlan 2-4094" + end_line)
+        objTab.Screen.WaitForString(variables['prompt'])
+        objTab.Screen.Send(end_line)
+
+"""
+Switch to the configuration terminal prompt
+"""
+def change_to_configuration_prompt():
+    prompt = variables['prompt']
+    prompt = prompt[:-1]
+    prompt = prompt.capitalize() + '(config)#'
+    variables['prompt'] = prompt
+    log_message('change_to_configuration_prompt: New Prompt! {}'.format(variables['prompt']))
+"""
+Send the 'conf t' command to enable the configuration terminal
+"""
+def enable_configuration():
+    objTab.Screen.Send("conf t" + end_line)
+    change_to_configuration_prompt()
+    objTab.Screen.WaitForString(variables['prompt'])
+    log_message('enable_configuration: Enabled configuration and detected Prompt!')
+
+
+
+
+
+
+
+
+
 # ====================================================================================================================
 
 # Main function to run.
@@ -462,3 +555,27 @@ main()
 #     row_info = row.split()  # Split the row on the space character.
 #     index = row_info.index(row_info[len(row_info) - 1]) # Get the index of the final entry in a row.
 #     return index
+
+
+# Determine boot file
+# def boot_var():
+#     """
+#     Find the current boot variable and
+#     """
+#     objTab.Screen.Send("set" + end_line)
+#     change_to_shell_prompt()
+#     boot_file = objTab.Screen.ReadString(variables['prompt'])
+#     if "packages.conf" in boot_file or ".bin" in boot_file:
+
+# Erase ROMMON files (first in handle device())
+# def rommon_erasure():
+#     """
+#     Handle file erasures in ROMMON before boot
+#     :return:
+#     """
+#     # Iterate over all the variable ROMMON files and call a delete command on them.
+#     # IMPORTANT! This does NOT delete files that are not in the root directory from here!
+#     for file in variables['rommon_files']:
+#         file_path = variables['directory'] + file
+#         delete_file(file_path)
+#     log_message('rommon_erasure: Complete!')
