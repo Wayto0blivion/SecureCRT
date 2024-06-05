@@ -121,3 +121,5 @@ log_message(objTab.Screen.WaitForStrings(prompts))
 # View PID/Hardware status
 objTab.Screen.WaitForStrings(prompts)
 objTab.Screen.Send("show chassis hardware" + end_line)
+
+print("Suck deez")
