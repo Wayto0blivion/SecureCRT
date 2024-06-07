@@ -4,7 +4,7 @@
 """
 Original created on 4-5-2024 by Dustin Beck
 
-Edited for use with C3k series Cisco switches on 6/5/24 by Mitch Kelley
+Revised for use with C3k series Cisco switches on 6/5/24 by Mitch Kelley
 
 cisco_3850_reset.py
 
@@ -64,14 +64,14 @@ def main():
 
 def load_variable_file():
     """
-    Check for the existence of variables.json. If it exists, load it and return the variables.
+    Check for the existence of 3850_variables.json. If it exists, load it and return the variables.
     If it doesn't exist, create it and load default variables into the file.
     :return: prompt, directory, excluded_directories: Variables to be loaded globally.
     """
     # Get the absolute path to the directory where the script is stored
     script_directory = os.path.dirname(os.path.abspath(__file__))
     # Get the absolute filepath for where the variable file will be.
-    variables_path = os.path.join(script_directory, "variables.json")
+    variables_path = os.path.join(script_directory, "3850_variables.json")
 
     # Check if the file exists
     if not os.path.exists(variables_path):
@@ -81,10 +81,10 @@ def load_variable_file():
             "prompt": 'switch',
             "directory": 'flash:',
             "excluded_directories": ['html'],
-            "rommon_files": ['vlan.dat', 'multiple-fs', 'config.text'],
             "boot_command": 'boot flash:packages.conf',
             "boot_message": 'Press RETURN to get started!',
-            "file_extension": ['.pkg', '.conf']
+            "file_extension": ['.bin', '.pkg', '.conf'],
+
         }
         # create the file and write the default data to it
         with open(variables_path, 'a') as file:
@@ -130,7 +130,7 @@ def get_log_path():
 
 def ignore_startup():
     """
-    Run the 'SWITCH_IGNORE_STARTUP_CFG=1' command and wait for the prompt to appear
+    Send the 'SWITCH_IGNORE_STARTUP_CFG=1' command and wait for the prompt to appear
     :return:
     """
     objTab.Screen.Send("SWITCH_IGNORE_STARTUP_CFG=1" + end_line)
@@ -144,13 +144,13 @@ def boot_device():
     :return:
     """
     objTab.Screen.Send('{}{}'.format(variables['boot_command'], end_line))
+    objTab.Screen.WaitForString('[yes/no]:')
+    objTab.Screen.Send('no' + end_line)
+    log_message('boot_device: Skipping Initial Configuration Dialog')
     objTab.Screen.WaitForString(variables['boot_message'])
     log_message('boot_device: Detected Boot Message!')
     objTab.Screen.Send(end_line)
     log_message('boot_device: Return Pressed!')
-    objTab.Screen.WaitForString('[yes/no]:')
-    objTab.Screen.Send('no' + end_line)
-    log_message('boot_device: Skipping Initial Configuration Dialog')
     change_to_boot_prompt()
     objTab.Screen.WaitForString(variables['prompt'])
     log_message('boot_device: Found Prompt!')
@@ -214,7 +214,113 @@ def write_erase():
     log_message('write_erase: Found Prompt!')
 
 
+def clear_logs():
+    """
+    Clear all stored logs
+    """
+    objTab.Screen.Send("clear log" + end_line)
+    log_message('clear_log: Sent clear log command!')
+    # Wait for the write erase confirmation prompt and send a carriage return
+    objTab.Screen.WaitForString('[confirm]')
+    objTab.Screen.Send(end_line)
+    log_message('clear_log: Found Confirmation!')
+    # Wait for the prompt to appear again.
+    objTab.Screen.WaitForStrings(variables['prompt'])
+    log_message('clear_log: Found Prompt!')
 
+
+def format_crash():
+    """
+    Format the 'crashinfo:' directory
+    """
+    log_message('format_crash: Sent format command!')
+    objTab.Screen.Send("format crashinfo:" + end_line)
+    objTab.Screen.WaitForString('[confirm]')
+    objTab.Screen.Send(end_line)
+    log_message('format_crash: Found confirmation!')
+    objTab.Screen.WaitForString('[confirm]')
+    objTab.Screen.Send(end_line)
+    log_message('format_crash: Found Confirmation!')
+    objTab.Screen.WaitForString(variables['prompt'])
+    log_message('format_crash: Found Prompt!')
+
+
+def del_nvram_dir():
+    """
+    Delete the contents of nvram dir:
+    """
+    log_message('del_nvram_dir: Sent delete command!')
+    objTab.Screen.Send("del /f /r nvram:" + end_line)
+    objTab.Screen.WaitForStrings(variables['prompt'])
+    log_message('del_nvram_dir: Found prompt!')
+
+
+def check_vtp_vlans():
+    """
+        Send 'show vtp status' command to check and set status to 'OFF'
+    """
+    objTab.Screen.Send("show vtp status" + end_line)
+    status = objTab.Screen.ReadString("Switch#")
+    enable_configuration()
+    if "Client" in status or "Transparent" in status:
+        # If VTP Client or Transparent mode is enabled, turn off VTP mode and remove VLANS
+        objTab.Screen.Send("vtp mode off" + end_line)
+        objTab.Screen.WaitForStrings(variables['prompt'])
+        log_message('check_vtp_vlans: VTP set to OFF!')
+        objTab.Screen.Send("no vlan 2-4094" + end_line)
+        objTab.Screen.WaitForStrings(variables['prompt'])
+        log_message('check_vtp_vlans: VLANS removed!')
+    elif "OFF" in status:
+        # If VTP is off remove VLANs
+        objTab.Screen.Send("no vlan 2-4094" + end_line)
+        objTab.Screen.WaitForStrings(variables['prompt'])
+        log_message('check_vtp_vlans: VTP was off, VLANs removed!')
+
+
+def clear_keys():
+    """
+    Send the zeroize command to remove all network keys
+    """
+    objTab.Screen.Send("crypto key zeroize rsa" + end_line)
+    confirm_or_continue()
+    objTab.Screen.Send("crypto key zeroize ec" + end_line)
+    log_message('clear_keys: RSA keys removed!')
+    confirm_or_continue()
+    objTab.Screen.WaitForStrings(variables['prompt'])
+    log_message('clear_keys: EC keys removed!')
+    objTab.Screen.Send("exit" + end_line)  # Exit the configuration terminal
+    log_message('clear_keys: Found prompt, now exiting configuration')
+
+
+def write_memory():
+    """
+    Save new configuration to memory
+    """
+    change_to_shell_prompt()  # Changing prompt detection to exec privilege
+    objTab.Screen.Send("copy running-config startup-config" + end_line)
+    objTab.Screen.WaitForString('[startup-config]')  # Wait for confirmation
+    objTab.Screen.Send(end_line)
+    objTab.Screen.WaitForString(variables['prompt'])
+    log_message('write_memory: Found confirmation!')
+
+
+def show_info():
+    """
+    Display hardware/PID info to user, as well as displaying current VLANs to confirm erasure
+    """
+    # Send command to display VLANs to confirm erasure
+    objTab.Screen.Send("show vlan" + end_line)
+    # Wait for the More prompt and sends space to continue
+    vlan_more()
+    objTab.WaitforStrings(variables['prompt'])
+    log_message('Found Prompt: VLANs displayed')
+    # Send command to display hardware info
+    objTab.Screen.Send("show env all" + end_line)
+    # Send command to view chassis PID/SN/Model info
+    objTab.WaitforStrings(variables['prompt'])
+    log_message('show_env_all: Sent command and found prompt!')
+    objTab.Screen.Send("show inv" + end_line)
+    log_message('show_inv:Found prompt! Finished wiping device!')
 
 
 def process_directory(files):
@@ -234,15 +340,15 @@ def process_directory(files):
 
 def get_directory_contents(directory):
     """
-    Get the contents of a directory and break it down into a list, removing the .bin files
+    Get the contents of a directory and break it down into a list, removing the .bin/.conf/.pkg files
     :param directory: The directory to parse over.
-    :return: List of directory contents without the .bin files.
+    :return: List of directory contents without the .bin/.conf/.pkg files.
     """
     # Check if the directory exists by calling it using the 'dir' command
     directory_exists = call_directory(directory)
     directory_contents = ''  # Initialize an empty string to store the contents of the directory
     more_count = 0  # Number of times MORE was detected in the directory.
-    found_bin_file = False  # Boolean to determine if the .bin file has been detected
+    found_conf_file = False  # Boolean to determine if the .bin file has been detected
 
     # If the directory was detected, handle determining the contents
     if directory_exists:
@@ -286,8 +392,8 @@ def get_directory_contents(directory):
             # Skip empty lines
             if row.strip():
                 # Ignore rows that have a boot extension
-                if ".conf" in row or "pkg." in row:
-                    found_bin_file = True
+                if ".conf" in row or ".pkg" in row:
+                    found_conf_file = True
                     log_message('get_directory_contents: Found .conf file!')
                     display_to_user('Couldn\'t find .conf file!')
                     continue
@@ -302,7 +408,7 @@ def get_directory_contents(directory):
                 else:
                     log_message('get_directory_contents: ERROR: No file found for {}/}|'.format(directory, row))
 
-        if files and found_bin_file:  # If files were detected, return them as a list
+        if files and found_conf_file:  # If files were detected, return them as a list
             return files
         else:  # If the directory was empty, return None
             log_message('get_directory_contents: No files found in {} directory|'.format(directory))
@@ -380,6 +486,50 @@ def change_to_shell_prompt():
     log_message('change_to_shell_prompt: New Prompt! {}'.format(variables['prompt']))
 
 
+def change_to_configuration_prompt():
+    """
+    Switch to the configuration terminal prompt
+    :return:
+    """
+    prompt = variables['prompt']
+    prompt = prompt[:-1]
+    prompt = prompt.capitalize() + '(config)#'
+    variables['prompt'] = prompt
+    log_message('change_to_configuration_prompt: New Prompt! {}'.format(variables['prompt']))
+
+
+def enable_configuration():
+    """
+    Send the 'conf t' command to enable the configuration terminal
+    return
+    """
+    objTab.Screen.Send("conf t" + end_line)
+    change_to_configuration_prompt()
+    objTab.Screen.WaitForStrings(variables['prompt'])
+    log_message('enable_configuration: Enabled configuration and detected Prompt!')
+
+
+def confirm_or_continue():
+    """
+    Handles confirmation output
+    return
+    """
+    key_prompt = objTab.Screen.WaitForStrings(["[yes/no]:", variables['prompt']])
+    if key_prompt == 1:
+        objTab.Screen.Send(confirmation)
+    log_message('confirm_or_continue: Detected [yes/no] and sent confirmation!')
+
+
+def vlan_more():
+    """
+    Handle 'MORE' prompts, until none
+    """
+    more_prompt = objTab.Screen.WaitForString("--More--", variables['prompt'])
+    while more_prompt == 1:  # Loop to detect and advance 'more' prompt
+        objTab.Screen.Send(" ")
+        log_message('Found MORE: Sending space')
+
+
 def handle_device():
     """
     Handle the messy art of wiping a Cisco device.
@@ -390,139 +540,33 @@ def handle_device():
     change_to_rommon_prompt()
     # Set configuration to ignore user configuration
     ignore_startup()
-    # Get directory contents before boot
-    files = get_directory_contents(variables['directory'])
     # Boot the device
     boot_device()
     # Enable the terminal shell
     enable_shell()
     # Send the 'write erase' command
     write_erase()
-    #Clear stored logs
+    # Get directory contents before boot
+    files = get_directory_contents(variables['directory'])
+    # Clear stored logs
     clear_logs()
-    # Recursively del nvram: directory
-    del_nvram_dir()
     # Format the crashinfo: directory
     format_crash()
-    #Check for VTP status then delete VLANs
+    # Recursively del nvram: directory
+    del_nvram_dir()
+    # Check for VTP status then delete VLANs
     check_vtp_vlans()
+    # Clear keys from device
+    clear_keys()
+    # Save new configuration
+    write_memory()
+    # Display hardware info
+    show_info()
     # Process the contents of the directory
     process_directory(files)
 
-# clear_logs
-# format_crash_dir
-# del_nvram_dir
-# check_vtp()
-# del_vlans
-# clear_keys
-# save and display hardware/vlan info
-
-
-
-
-
-
-
-
 
 # ====================================================================================================================
-"""
-Clear all stored logs
-"""
-def clear_logs():
-    objTab.Screen.Send("clear log" + end_line)
-    log_message('clear_log: Sent clear log command!')
-    # Wait for the write erase confirmation prompt and send a carriage return
-    objTab.Screen.WaitForStrings('[confirm]')
-    objTab.Screen.Send(end_line)
-    log_message('clear_log: Found Confirmation')
-    # Wait for the prompt to appear again.
-    objTab.Screen.WaitForString(variables['prompt'])
-    log_message('clear_log: Found Prompt!')
-
-"""
-Clear all network keys
-"""
-def clear_keys():
-    objTab.Screen.Send("crypto key zeroize rsa" + end_line)
-    objTab.Screen.WaitForString(variables[])
-    objTab.Screen.Send("crypto key zeroize rsa" + end_line)
-
-
-"""
-Send the 'conf t' command to enable the configuration terminal
-"""
-def enable_configuration():
-    objTab.Screen.Send("conf t" + end_line)
-    change_to_configuration_prompt()
-    objTab.Screen.WaitForString(variables['prompt'])
-    log_message('enable_configuration: Enabled configuration and detected Prompt!')
-
-"""
-Format the 'crashinfo:' directory
-"""
-def format_crash():
-    objTab.Screen.Send("format crashinfo:" + end_line)
-    objTab.Screen.WaitForStrings('[confirm]')
-    objTab.Screen.Send(end_line)
-    log_message('clear_log: Found Confirmation')
-    objTab.Screen.WaitForStrings('[confirm]')
-    objTab.Screen.Send(end_line)
-    log_message('clear_log: Found Confirmation')
-    objTab.Screen.WaitforStrings(variables['prompt'])
-
-"""
-Delete the contents of nvram dir:
-"""
-def del_nvram_dir():
-    objTab.Screen.Send("del /f /r nvram:")
-    objTab.Screen.WaitForStrings(variables['prompt'])
-    log_message('del_nvram_dir: Deleted Nvram and Found prompt!')
-
-"""
-    Send 'show vtp status' to check and set status to 'OFF'
-"""
-def check_vtp_vlans():
-    objTab.Screen.Send("show vtp status" + end_line)
-    response = objTab.Screen.ReadString("Switch#")
-    if "Client" in response or "Transparent" in response:
-        # If VTP Client or Transparent mode is enabled, turn off VTP mode
-        enable_configuration()
-        objTab.Screen.Send("vtp mode off" + end_line)
-        objTab.Screen.WaitForString(variables['prompt'])
-        objTab.Screen.Send("no vlan 2-4094" + end_line)
-        objTab.Screen.WaitForString(variables['prompt'])
-    elif "OFF" in response:
-        enable_configuration()
-        objTab.Screen.Send("no vlan 2-4094" + end_line)
-        objTab.Screen.WaitForString(variables['prompt'])
-        objTab.Screen.Send(end_line)
-
-"""
-Switch to the configuration terminal prompt
-"""
-def change_to_configuration_prompt():
-    prompt = variables['prompt']
-    prompt = prompt[:-1]
-    prompt = prompt.capitalize() + '(config)#'
-    variables['prompt'] = prompt
-    log_message('change_to_configuration_prompt: New Prompt! {}'.format(variables['prompt']))
-"""
-Send the 'conf t' command to enable the configuration terminal
-"""
-def enable_configuration():
-    objTab.Screen.Send("conf t" + end_line)
-    change_to_configuration_prompt()
-    objTab.Screen.WaitForString(variables['prompt'])
-    log_message('enable_configuration: Enabled configuration and detected Prompt!')
-
-
-
-
-
-
-
-
 
 # ====================================================================================================================
 
@@ -568,6 +612,7 @@ main()
 #     if "packages.conf" in boot_file or ".bin" in boot_file:
 
 # Erase ROMMON files (first in handle device())
+# "rommon_files": ['vlan.dat', 'multiple-fs', 'config.text'],
 # def rommon_erasure():
 #     """
 #     Handle file erasures in ROMMON before boot
