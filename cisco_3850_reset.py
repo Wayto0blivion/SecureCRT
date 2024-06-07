@@ -167,6 +167,21 @@ def enable_shell():
     log_message('enable_shell: Enabled Shell and detected Prompt!')
 
 
+# Erase ROMMON files (first in handle device())
+# "rommon_files": ['vlan.dat', 'multiple-fs', 'config.text'],
+# def rommon_erasure():
+#     """
+#     Handle file erasures in ROMMON before boot
+#     :return:
+#     """
+#     # Iterate over all the variable ROMMON files and call a delete command on them.
+#     # IMPORTANT! This does NOT delete files that are not in the root directory from here!
+#     for file in variables['rommon_files']:
+#         file_path = variables['directory'] + file
+#         delete_file(file_path)
+#     log_message('rommon_erasure: Complete!')
+
+
 def delete_file(filename):
     """
     Used to delete a specific file using the del command.
@@ -300,6 +315,7 @@ def write_memory():
     objTab.Screen.Send("copy running-config startup-config" + end_line)
     objTab.Screen.WaitForString('[startup-config]')  # Wait for confirmation
     objTab.Screen.Send(end_line)
+    # display_to_user(variables['prompt'])
     objTab.Screen.WaitForString(variables['prompt'])
     log_message('write_memory: Found confirmation!')
 
@@ -312,12 +328,11 @@ def show_info():
     objTab.Screen.Send("show vlan" + end_line)
     # Wait for the More prompt and sends space to continue
     vlan_more()
-    objTab.WaitforStrings(variables['prompt'])
     log_message('Found Prompt: VLANs displayed')
     # Send command to display hardware info
     objTab.Screen.Send("show env all" + end_line)
     # Send command to view chassis PID/SN/Model info
-    objTab.WaitforStrings(variables['prompt'])
+    objTab.Screen.WaitForStrings(variables['prompt'])
     log_message('show_env_all: Sent command and found prompt!')
     objTab.Screen.Send("show inv" + end_line)
     log_message('show_inv:Found prompt! Finished wiping device!')
@@ -392,10 +407,9 @@ def get_directory_contents(directory):
             # Skip empty lines
             if row.strip():
                 # Ignore rows that have a boot extension
-                if ".conf" in row or ".pkg" in row:
+                if ".conf" in row or ".pkg" in row or ".bin" in row:
                     found_conf_file = True
                     log_message('get_directory_contents: Found .conf file!')
-                    display_to_user('Couldn\'t find .conf file!')
                     continue
                 # The last line contains byte information. This can be used as an indication for the end of the loop.
                 if 'bytes' in row:
@@ -481,6 +495,9 @@ def change_to_shell_prompt():
     """
     prompt = variables['prompt']
     prompt = prompt[:-1]
+    if '(config)' in prompt:
+        log_message('change_to_shell_prompt: found (config) in prompt')
+        prompt = prompt[:-8]
     prompt = prompt.capitalize() + '#'
     variables['prompt'] = prompt
     log_message('change_to_shell_prompt: New Prompt! {}'.format(variables['prompt']))
@@ -524,10 +541,14 @@ def vlan_more():
     """
     Handle 'MORE' prompts, until none
     """
-    more_prompt = objTab.Screen.WaitForString("--More--", variables['prompt'])
-    while more_prompt == 1:  # Loop to detect and advance 'more' prompt
-        objTab.Screen.Send(" ")
-        log_message('Found MORE: Sending space')
+    while True:
+        index = objTab.Screen.WaitForStrings(['--More--', variables['prompt']])
+        if index == 1:  # Loop to detect and advance 'more' prompt
+            objTab.Screen.Send(" ")
+            log_message('Found MORE: Sending space')
+        elif index == 2:
+            log_message('More not found: Break!')
+            break
 
 
 def handle_device():
@@ -540,14 +561,14 @@ def handle_device():
     change_to_rommon_prompt()
     # Set configuration to ignore user configuration
     ignore_startup()
+    # Get directory contents before boot
+    files = get_directory_contents(variables['directory'])
     # Boot the device
     boot_device()
     # Enable the terminal shell
     enable_shell()
     # Send the 'write erase' command
     write_erase()
-    # Get directory contents before boot
-    files = get_directory_contents(variables['directory'])
     # Clear stored logs
     clear_logs()
     # Format the crashinfo: directory
@@ -611,16 +632,4 @@ main()
 #     boot_file = objTab.Screen.ReadString(variables['prompt'])
 #     if "packages.conf" in boot_file or ".bin" in boot_file:
 
-# Erase ROMMON files (first in handle device())
-# "rommon_files": ['vlan.dat', 'multiple-fs', 'config.text'],
-# def rommon_erasure():
-#     """
-#     Handle file erasures in ROMMON before boot
-#     :return:
-#     """
-#     # Iterate over all the variable ROMMON files and call a delete command on them.
-#     # IMPORTANT! This does NOT delete files that are not in the root directory from here!
-#     for file in variables['rommon_files']:
-#         file_path = variables['directory'] + file
-#         delete_file(file_path)
-#     log_message('rommon_erasure: Complete!')
+
