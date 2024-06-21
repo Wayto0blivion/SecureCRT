@@ -239,19 +239,18 @@ def clear_logs():
     objTab.Screen.WaitForString('[confirm]')
     objTab.Screen.Send(end_line)
     log_message('clear_log: Found Confirmation!')
-    # Wait for the prompt to appear again.
-    objTab.Screen.WaitForStrings(variables['prompt'])
-    log_message('clear_log: Found Prompt!')
 
 
 def del_nvram_dir():
     """
     Delete the contents of nvram dir:
     """
-    log_message('del_nvram_dir: Sent delete command!')
+    # Wait for the prompt to appear again.
+    objTab.Screen.WaitForStrings(variables['prompt'])
+    log_message('clear_log: Found Prompt!')
     objTab.Screen.Send("del /f /r nvram:" + end_line)
     objTab.Screen.WaitForStrings(variables['prompt'])
-    log_message('del_nvram_dir: Found prompt!')
+    log_message('del_nvram_dir: Sent delete command found Prompt!')
 
 
 def check_vtp_vlans():
@@ -283,11 +282,7 @@ def clear_keys():
     objTab.Screen.Send("crypto key zeroize rsa" + end_line)
     confirm_or_continue()
     objTab.Screen.Send("crypto key zeroize ec" + end_line)
-    log_message('clear_keys: RSA keys removed!')
-    confirm_or_continue()
-    log_message('clear_keys: EC keys removed!')
-    objTab.Screen.Send("exit" + end_line)  # Exit the configuration terminal
-    log_message('clear_keys: Found prompt, now exiting configuration')
+    confirm_or_continue_2()
 
 
 def write_memory():
@@ -295,18 +290,21 @@ def write_memory():
     Save new configuration to memory
     """
     change_to_shell_prompt()  # Changing prompt detection to exec privilege
-    objTab.Screen.Send("copy running-config startup-config" + end_line)
+    objTab.Screen.WaitForString(variables['prompt'])
+    log_message('write_memory: Found Prompt! Sending copy r s!')
+    objTab.Screen.Send("copy running-config startup-config" + end_line)  # Send copy r s command to save config
     objTab.Screen.WaitForString('[startup-config]')  # Wait for confirmation
-    objTab.Screen.Send(end_line)
+    log_message('write_memory: Found confirmation! Sending carriage return!')
+    objTab.Screen.Send(end_line)  # Send carriage return
     # display_to_user(variables['prompt'])
     objTab.Screen.WaitForString(variables['prompt'])
-    log_message('write_memory: Found confirmation!')
 
 
 def show_info():
     """
     Display hardware/PID info to user, as well as displaying current VLANs to confirm erasure
     """
+    log_message('show_info: Found Prompt!')
     # Send command to display VLANs to confirm erasure
     objTab.Screen.Send("show vlan" + end_line)
     # Wait for the More prompt and sends space to continue
@@ -403,7 +401,7 @@ def get_directory_contents(directory):
                 if row_info:
                     files.append(row_info)
                 else:
-                    log_message('get_directory_contents: ERROR: No file found for {}/}|'.format(directory, row))
+                    log_message('get_directory_contents: ERROR: No file found for {}/{}|'.format(directory, row))
 
         if files and found_bin_file:  # If files were detected, return them as a list
             return files
@@ -518,7 +516,24 @@ def confirm_or_continue():
     key_prompt = objTab.Screen.WaitForStrings(["[yes/no]:", variables['prompt']])
     if key_prompt == 1:
         objTab.Screen.Send(confirmation)
-    log_message('confirm_or_continue: Detected [yes/no] and sent confirmation!')
+        log_message('confirm_or_continue: KEY == 1: Sent confirmation! RSA keys removed!')
+    if key_prompt == 2:
+        log_message('confirm_or_continue: KEY == 2: NO RSA KEYS!')
+
+
+def confirm_or_continue_2():
+    key_prompt2 = objTab.Screen.WaitForStrings(["[yes/no]:", variables['prompt']])
+    if key_prompt2 == 1:
+        objTab.Screen.Send(confirmation)
+        log_message('confirm_or_continue2: KEY == 1: Sent confirmation! EC keys removed!')
+        objTab.Screen.WaitForStrings(variables['prompt'])
+        log_message("SHOWING PROMPT:" + (variables['prompt']))
+        objTab.Screen.Send("exit" + end_line)
+        log_message('confirm_or_continue2: Found prompt! Exiting configuration')
+    if key_prompt2 == 2:
+        log_message('confirm_or_continue2: KEY == 2: NO EC KEYS!')
+        objTab.Screen.Send("exit" + end_line)
+        log_message('confirm_or_continue: Exiting configuration')
 
 
 def vlan_more():
