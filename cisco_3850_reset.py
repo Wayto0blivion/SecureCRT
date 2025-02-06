@@ -20,6 +20,8 @@ from datetime import datetime
 import json
 import os
 
+# Adding comment for commit test
+
 
 # Create global variables for loading from JSON
 variables = {}
@@ -287,10 +289,11 @@ def get_directory_contents(directory):
                 directory_contents += text + '\n'
                 objTab.Screen.Send(" ")
 
+        log_message(directory_contents)
+
         # Split the contents into rows on a new line
         file_rows = directory_contents.split('\n')
         files = []
-
         log_message('get_directory_contents: Contents have been read. Finding file names in {}'.format(directory))
 
         # Create a list of dictionary objects
@@ -305,6 +308,8 @@ def get_directory_contents(directory):
                 # The last line contains byte information. This can be used as an indication for the end of the loop.
                 if 'bytes' in row:
                     break
+
+                if row == "/.":
 
                 # Append a dictionary to files list that contains filenames
                 row_info = get_row_info(row, directory)
