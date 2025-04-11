@@ -275,14 +275,9 @@ def check_vtp_vlans():
         log_message('check_vtp_vlans: VTP was off, VLANs removed!')
 
 
-def clear_keys():
-    """
-    Send the zeroize command to remove all network keys
-    """
-    objTab.Screen.Send("crypto key zeroize rsa" + end_line)
-    confirm_or_continue()
-    objTab.Screen.Send("crypto key zeroize ec" + end_line)
-    confirm_or_continue_2()
+def exit_conf():
+    objTab.Screen.Send("exit" + end_line)
+    log_message('Exit_conf: Exiting configuration!')
 
 
 def write_memory():
@@ -407,7 +402,7 @@ def get_directory_contents(directory):
             return files
         else:  # If the directory was empty, return None
             log_message('get_directory_contents: No files found in {} directory|'.format(directory))
-            display_to_user('Couldn\'t find .bin file!')
+            display_to_user('Couldn\'t find .bin file!\nManual deletion required.')
             return None
 
 
@@ -508,32 +503,32 @@ def enable_configuration():
     log_message('enable_configuration: Enabled configuration and detected Prompt!')
 
 
-def confirm_or_continue():
-    """
-    Handles confirmation output
-    return
-    """
-    key_prompt = objTab.Screen.WaitForStrings(["[yes/no]:", variables['prompt']])
-    if key_prompt == 1:
-        objTab.Screen.Send(confirmation)
-        log_message('confirm_or_continue: KEY == 1: Sent confirmation! RSA keys removed!')
-    if key_prompt == 2:
-        log_message('confirm_or_continue: KEY == 2: NO RSA KEYS!')
+# def confirm_or_continue():
+#     """
+#     Handles confirmation output
+#     return
+#     """
+#     key_prompt = objTab.Screen.WaitForStrings(["[yes/no]:", variables['prompt']])
+#     if key_prompt == 1:
+#         objTab.Screen.Send(confirmation)
+#         log_message('confirm_or_continue: KEY == 1: Sent confirmation! RSA keys removed!')
+#     if key_prompt == 2:
+#         log_message('confirm_or_continue: KEY == 2: NO RSA KEYS!')
 
 
-def confirm_or_continue_2():
-    key_prompt2 = objTab.Screen.WaitForStrings(["[yes/no]:", variables['prompt']])
-    if key_prompt2 == 1:
-        objTab.Screen.Send(confirmation)
-        log_message('confirm_or_continue2: KEY == 1: Sent confirmation! EC keys removed!')
-        objTab.Screen.WaitForStrings(variables['prompt'])
-        log_message("SHOWING PROMPT:" + (variables['prompt']))
-        objTab.Screen.Send("exit" + end_line)
-        log_message('confirm_or_continue2: Found prompt! Exiting configuration')
-    if key_prompt2 == 2:
-        log_message('confirm_or_continue2: KEY == 2: NO EC KEYS!')
-        objTab.Screen.Send("exit" + end_line)
-        log_message('confirm_or_continue: Exiting configuration')
+# def confirm_or_continue_2():
+#     key_prompt2 = objTab.Screen.WaitForStrings(["[yes/no]:", variables['prompt']])
+#     if key_prompt2 == 1:
+#         objTab.Screen.Send(confirmation)
+#         log_message('confirm_or_continue2: KEY == 1: Sent confirmation! EC keys removed!')
+#         objTab.Screen.WaitForStrings(variables['prompt'])
+#         log_message("SHOWING PROMPT:" + (variables['prompt']))
+#         objTab.Screen.Send("exit" + end_line)
+#         log_message('confirm_or_continue2: Found prompt! Exiting configuration')
+#     if key_prompt2 == 2:
+#         log_message('confirm_or_continue2: KEY == 2: NO EC KEYS!')
+#         objTab.Screen.Send("exit" + end_line)
+#         log_message('confirm_or_continue: Exiting configuration')
 
 
 def vlan_more():
@@ -578,8 +573,10 @@ def handle_device():
     del_nvram_dir()
     # Check VTP Status, set to OFF and remove VLANs
     check_vtp_vlans()
+    # Exit the configuration terminal
+    exit_conf()
     # Clear all keys from the configuration terminal
-    clear_keys()
+    # clear_keys()
     # Write all configuration changes to memory
     write_memory()
     # Display system hardware and PID to user
@@ -618,3 +615,12 @@ main()
 #     row_info = row.split()  # Split the row on the space character.
 #     index = row_info.index(row_info[len(row_info) - 1]) # Get the index of the final entry in a row.
 #     return index
+
+# def clear_keys():
+#     """
+#     Send the zeroize command to remove all network keys
+#     """
+#     objTab.Screen.Send("crypto key zeroize rsa" + end_line)
+#     confirm_or_continue()
+#     objTab.Screen.Send("crypto key zeroize ec" + end_line)
+#     confirm_or_continue_2()

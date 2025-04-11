@@ -173,24 +173,24 @@ def enable_shell():
     objTab.Screen.WaitForString(variables['prompt'])
     log_message('enable_shell: Enabled Shell and detected Prompt!')
 
-
-def delete_file(filename):
-    """
-    Used to delete a specific file using the del command.
-    :param filename: File to be deleted.
-    :return: Whether the file was deleted or not.
-    """
-    log_message('delete_file: Deleting {}'.format(filename))
-    objTab.Screen.Send("del /f /r {}{}".format(filename, end_line))
-    output_string = objTab.Screen.WaitForStrings(['y/n', 'file or directory'])
-    # Check if the output is y/n, and if it is, send a confirmation.
-    if output_string == 1:
-        objTab.Screen.Send(confirmation)
-        objTab.Screen.WaitForString(variables['prompt'])
-        log_message('delete_file: File Deleted! {}'.format(filename))
-    elif output_string == 2:
-        log_message('delete_file: Could not delete file! {}'.format(filename))
-        display_to_user('File Couldn\'t be deleted! \n{}'.format(filename))
+# this was originally to delete files in rommon for the 2960
+# def delete_file(filename):
+#     """
+#     Used to delete a specific file using the del command.
+#     :param filename: File to be deleted.
+#     :return: Whether the file was deleted or not.
+#     """
+#     log_message('delete_file: Deleting {}'.format(filename))
+#     objTab.Screen.Send("del /f /r {}{}".format(filename, end_line))
+#     output_string = objTab.Screen.WaitForStrings(['y/n', 'file or directory'])
+#     # Check if the output is y/n, and if it is, send a confirmation.
+#     if output_string == 1:
+#         objTab.Screen.Send(confirmation)
+#         objTab.Screen.WaitForString(variables['prompt'])
+#         log_message('delete_file: File Deleted! {}'.format(filename))
+#     elif output_string == 2:
+#         log_message('delete_file: Could not delete file! {}'.format(filename))
+#         display_to_user('File Couldn\'t be deleted! \n{}'.format(filename))
 
 
 def boot_delete_file(filename):
@@ -313,7 +313,6 @@ def get_directory_contents(directory):
                     continue
 
                 if count == 2 or count == 3:
-                    # found_conf_file = True
                     log_message('row_strip: Skipping top 2 rows!' + row)
                     continue
 
@@ -445,7 +444,7 @@ def exit_conf():
     Exit configuration terminal after removing vlans
     """
     objTab.Screen.Send("exit" + end_line)
-    log_message('clear_keys: Exiting configuration!')
+    log_message('exit_conf: Found prompt, now exiting configuration')
 
 
 def write_memory():

@@ -462,7 +462,7 @@ def exit_conf():
     Exit configuration terminal after removing vlans
     """
     objTab.Screen.Send("exit" + end_line)
-    log_message('clear_keys: Exiting configuration!')
+    log_message('exit_conf: Found prompt, now exiting configuration')
 
 
 def write_memory():
